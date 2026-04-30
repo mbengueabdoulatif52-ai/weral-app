@@ -36,18 +36,17 @@ body{max-width:480px;width:100%;margin:0 auto;padding-top:60px;padding-bottom:80
 .tb-btn{width:32px;height:32px;border-radius:9px;border:0.5px solid var(--border2);background:var(--surf2);
   cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text2)}
 #navbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;z-index:100;
-  background:rgba(10,22,40,.95);backdrop-filter:blur(20px);border-top:0.5px solid var(--border);
-  display:flex;align-items:center;padding:6px 0 10px;height:64px}
+  background:rgba(10,22,40,.97);backdrop-filter:blur(20px);border-top:0.5px solid var(--border);
+  display:flex;align-items:center;padding:8px 0 16px}
 .light #navbar{background:rgba(240,243,248,.97)}
 .ni{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
-  border:none;background:transparent;cursor:pointer;padding:4px 0;color:var(--text3);font-size:9px;font-family:var(--font);height:100%}
+  border:none;background:transparent;cursor:pointer;padding:2px 0;color:var(--text3);
+  font-size:8.5px;font-family:var(--font)}
 .ni.on{color:var(--green)}
-.ni svg{width:20px;height:20px}
-.ni-wrap{flex:1;display:flex;align-items:center;justify-content:center;height:100%}
-.ni-add{width:48px;height:48px;border-radius:50%;background:var(--green);border:none;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;margin-bottom:8px;
-  box-shadow:0 4px 20px rgba(0,214,143,.4);flex-shrink:0}
-.ni-add svg{width:22px;height:22px;color:#000}
+.ni svg{width:19px;height:19px}
+.ni-add{width:44px;height:44px;border-radius:50%;background:var(--green);border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ni-add svg{width:20px;height:20px;stroke:#0a1628;fill:none;stroke-width:2.5}
 .page{display:none;padding:16px}
 .page.active{display:block}
 #loading{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;flex-direction:column;
@@ -185,6 +184,7 @@ select.finp{appearance:none;cursor:pointer}
 <div id="page-chantier" class="page"></div>
 <div id="page-add" class="page"></div>
 <div id="page-ouvriers" class="page"></div>
+<div id="page-stock" class="page"></div>
 <div id="page-profil" class="page"></div>
 
 <div id="navbar" style="visibility:hidden">
@@ -196,11 +196,15 @@ select.finp{appearance:none;cursor:pointer}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
     Ouvriers
   </button>
-  <div class="ni-wrap">
-    <button class="ni-add" onclick="goP('add',null)">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    </button>
-  </div>
+  <button class="ni" style="flex:1" id="ni-add" onclick="goP('add',null)">
+    <div class="ni-add">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </div>
+  </button>
+  <button class="ni" id="ni-stk" onclick="goP('stock',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+    Stock
+  </button>
   <button class="ni" id="ni-pro" onclick="goP('profil',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
     Profil
@@ -335,6 +339,7 @@ function goP(p,btn){
   document.getElementById('tb-chantier').style.display='none';
   if(p==='dash')renderDash();
   else if(p==='ouvriers')renderOuvriers();
+  else if(p==='stock')renderStock();
   else if(p==='profil')renderProfil();
   else if(p==='add')renderAdd();
   else if(p==='chantier')renderChantierDetail();
@@ -846,6 +851,74 @@ async function valPoints(){
   toast(ps.length+' présence(s) · '+fmt(total)+' F');
   Object.keys(presences).forEach(k=>delete presences[k]);
   renderOuvriers();
+}
+
+// ── STOCK GLOBAL ─────────────────────────
+async function renderStock(){
+  const el=document.getElementById('page-stock');
+  el.innerHTML=loading();
+  if(!chantiers.length){
+    el.innerHTML=`<div class="sh"><h3>Stock global</h3></div>
+      <div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+        <p>Aucun chantier actif</p></div>`;
+    return;
+  }
+  // Load stock for all chantiers
+  let allStock=[];
+  try{
+    for(const c of chantiers){
+      const snap=await SP(c.id).get();
+      snap.docs.forEach(d=>{
+        const s={...d.data(),id:d.id,chantierId:c.id,chantierNom:c.nom};
+        // Merge same articles
+        const ex=allStock.find(x=>x.article===s.article);
+        if(ex){ex.entree+=s.entree||0;ex.reste+=s.reste||0;}
+        else allStock.push(s);
+      });
+    }
+  }catch(e){}
+
+  // Group by chantier
+  let html=`<div class="sh"><h3>Stock global</h3><button class="add-btn" onclick="showAddStk()">+ Entrée</button></div>`;
+
+  for(const c of chantiers){
+    const items=[];
+    try{
+      const snap=await SP(c.id).get();
+      snap.docs.forEach(d=>items.push({...d.data(),id:d.id}));
+    }catch(e){}
+    if(!items.length)continue;
+    const ruptures=items.filter(i=>i.reste<=0).length;
+    html+=`<div style="margin-bottom:4px;font-size:11px;font-weight:500;color:var(--text2);display:flex;justify-content:space-between;align-items:center">
+      <span>${c.nom}</span>
+      ${ruptures?`<span class="badge br">${ruptures} rupture${ruptures>1?'s':''}</span>`:''}
+    </div>
+    <div class="card" style="padding:0 16px;margin-bottom:14px">
+      ${items.map(it=>{
+        const pct=it.entree>0?Math.round((it.reste/it.entree)*100):0;
+        const col=pct>50?'var(--green)':pct>20?'var(--amber)':'var(--red)';
+        const badge=pct>50?'bg':pct>20?'ba':'br';
+        return `<div class="si">
+          <div class="si-h">
+            <span style="font-size:13px;font-weight:500;color:var(--text)">${it.article}</span>
+            <span class="badge ${badge}">${it.reste} ${it.unite}</span>
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Entré: ${it.entree} · Utilisé: ${(it.entree-it.reste).toFixed(1)} · ${it.fournisseur||'—'}</div>
+          <div class="prog"><div class="prog-f" style="width:${pct}%;background:${col}"></div></div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+  el.innerHTML=html;
+}
+
+function showAddStk(){
+  goP('add',document.getElementById('ni-add'));
+  setTimeout(()=>{
+    const tabs=document.querySelectorAll('#page-add .tab');
+    tabs.forEach(t=>t.classList.remove('on'));tabs[2]?.classList.add('on');
+    document.getElementById('add-body').innerHTML=renderAddStk();
+  },60);
 }
 
 // ── PROFIL ────────────────────────────────
