@@ -168,7 +168,7 @@ select.finp{appearance:none;cursor:pointer}
   </div>
 </div>
 
-<div id="topbar" style="display:none">
+<div id="topbar" style="visibility:hidden">
   <div class="tb-logo">WER<span>AL</span></div>
   <div id="tb-chantier" style="font-size:11px;color:var(--text2);display:none;flex:1;margin-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
   <div class="tb-right">
@@ -181,13 +181,13 @@ select.finp{appearance:none;cursor:pointer}
   </div>
 </div>
 
-<div id="page-dash" class="page active" style="display:none"></div>
-<div id="page-chantier" class="page" style="display:none"></div>
-<div id="page-add" class="page" style="display:none"></div>
-<div id="page-ouvriers" class="page" style="display:none"></div>
-<div id="page-profil" class="page" style="display:none"></div>
+<div id="page-dash" class="page active"></div>
+<div id="page-chantier" class="page"></div>
+<div id="page-add" class="page"></div>
+<div id="page-ouvriers" class="page"></div>
+<div id="page-profil" class="page"></div>
 
-<div id="navbar" style="display:none">
+<div id="navbar" style="visibility:hidden">
   <button class="ni on" id="ni-dash" onclick="goP('dash',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
     Chantiers
@@ -267,14 +267,14 @@ auth.onAuthStateChanged(async user=>{
   uid=user.uid;userPhone=user.phoneNumber||'';
   userName=user.displayName||user.email?.split('@')[0]||'Utilisateur';
   document.getElementById('auth-screen').style.display='none';
-  document.getElementById('topbar').style.display='flex';
-  document.getElementById('navbar').style.display='flex';
+  document.getElementById('topbar').style.visibility='visible';
+  document.getElementById('navbar').style.visibility='visible';
   // Pages shown via CSS .active class only
   await loadProfile();
   listenChantiers();
   listenFournisseurs();
   loadPrix();
-  renderDash();
+  goP('dash', document.getElementById('ni-dash'));
 });
 
 async function loadProfile(){
