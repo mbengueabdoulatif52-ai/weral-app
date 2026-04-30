@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>WERAL — Gestion de chantier</title>
+<meta name="theme-color" content="#0a1628">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --bg:#0a1628;--bg2:#0f1e38;--surf:#152040;--surf2:#1c2d50;
+  --border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.14);
+  --text:#f0f4ff;--text2:#8fa4cc;--text3:#4a6080;
+  --green:#00d68f;--red:#ff4d6d;--amber:#ffb347;--blue:#4d9fff;
+  --r:14px;--rs:10px;--font:'DM Sans',sans-serif;--mono:'DM Mono',monospace;
+}
+.light{
+  --bg:#f0f3f8;--bg2:#e4e9f2;--surf:#fff;--surf2:#f0f3f8;
+  --border:rgba(0,0,0,.08);--border2:rgba(0,0,0,.14);
+  --text:#0a1628;--text2:#3a5070;--text3:#8fa4cc;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg);min-height:100vh;overflow-x:hidden;font-family:var(--font);color:var(--text)}
+body{max-width:480px;width:100%;margin:0 auto;padding-top:60px;padding-bottom:80px}
+#topbar{position:fixed;top:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;z-index:100;
+  background:rgba(10,22,40,.92);backdrop-filter:blur(20px);border-bottom:0.5px solid var(--border);
+  padding:10px 16px;display:flex;align-items:center;gap:10px}
+.light #topbar{background:rgba(240,243,248,.96)}
+.tb-logo{font-size:17px;font-weight:600;letter-spacing:.06em;color:var(--text)}
+.tb-logo span{color:var(--green)}
+.tb-right{margin-left:auto;display:flex;gap:8px;align-items:center}
+.tb-btn{width:32px;height:32px;border-radius:9px;border:0.5px solid var(--border2);background:var(--surf2);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text2)}
+#navbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;z-index:100;
+  background:rgba(10,22,40,.95);backdrop-filter:blur(20px);border-top:0.5px solid var(--border);
+  display:flex;padding:6px 0 10px}
+.light #navbar{background:rgba(240,243,248,.97)}
+.ni{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:transparent;
+  cursor:pointer;padding:4px 0;color:var(--text3);font-size:9px;font-family:var(--font)}
+.ni.active{color:var(--green)}
+.ni svg{width:20px;height:20px}
+.ni-add{width:44px;height:44px;border-radius:50%;background:var(--green);border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;margin-top:-16px;box-shadow:0 4px 20px rgba(0,214,143,.35)}
+.ni-add svg{width:22px;height:22px;color:#000}
+.page{display:none;padding:16px}
+.page.active{display:block}
+#loading{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:16px}
+.spin{width:36px;height:36px;border:2.5px solid var(--surf2);border-top-color:var(--green);
+  border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+#auth-screen{position:fixed;inset:0;background:var(--bg);z-index:998;display:none;flex-direction:column;
+  align-items:center;justify-content:center;padding:24px}
+.auth-logo{font-size:48px;font-weight:600;letter-spacing:.1em;color:var(--text);margin-bottom:4px}
+.auth-logo span{color:var(--green)}
+.auth-sub{font-size:13px;color:var(--text3);margin-bottom:40px;text-align:center;line-height:1.6}
+.auth-card{background:var(--surf);border:0.5px solid var(--border2);border-radius:var(--r);
+  padding:24px;width:100%;max-width:340px}
+.auth-lbl{font-size:11px;color:var(--text3);margin-bottom:6px}
+.phone-wrap{display:flex;align-items:center;background:var(--surf2);border:0.5px solid var(--border2);
+  border-radius:var(--rs);padding:0 14px;margin-bottom:14px}
+.phone-prefix{color:var(--text2);font-size:14px;padding-right:8px;border-right:0.5px solid var(--border2);margin-right:8px}
+.phone-wrap input{background:transparent;border:none;outline:none;color:var(--text);font-size:15px;
+  font-family:var(--font);flex:1;padding:13px 0;width:100%}
+.btn-p{width:100%;padding:14px;border-radius:var(--rs);border:none;background:var(--green);
+  color:#0a1628;font-family:var(--font);font-size:14px;font-weight:600;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-p:disabled{opacity:.5;cursor:not-allowed}
+.btn-o{padding:10px 16px;border-radius:var(--rs);border:0.5px solid var(--border2);background:transparent;
+  color:var(--text2);font-family:var(--font);font-size:13px;cursor:pointer}
+.card{background:var(--surf);border:0.5px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px}
+.card-title{font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px}
+.sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.sh h3{font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em}
+.add-btn{font-size:11px;color:var(--green);background:transparent;border:none;cursor:pointer;font-family:var(--font)}
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.metric{background:var(--surf2);border-radius:10px;padding:12px}
+.mlbl{font-size:10px;color:var(--text3);margin-bottom:4px}
+.mval{font-size:17px;font-weight:500;font-family:var(--mono);color:var(--text)}
+.mval.g{color:var(--green)}.mval.r{color:var(--red)}.mval.a{color:var(--amber)}
+.cc{background:var(--surf);border:0.5px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px;cursor:pointer}
+.cc-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
+.cc-name{font-size:14px;font-weight:500;color:var(--text)}
+.cc-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:500}
+.bg{background:rgba(0,214,143,.15);color:var(--green)}
+.ba{background:rgba(255,179,71,.15);color:var(--amber)}
+.br{background:rgba(255,77,109,.15);color:var(--red)}
+.bb{background:rgba(77,159,255,.15);color:var(--blue)}
+.prog{height:4px;border-radius:2px;background:var(--surf2);overflow:hidden;margin-bottom:6px}
+.prog-f{height:100%;border-radius:2px}
+.cc-foot{display:flex;justify-content:space-between;font-size:11px;color:var(--text3)}
+.fi{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:0.5px solid var(--border)}
+.fi:last-child{border-bottom:none}
+.fi-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.fi-info{flex:1}.fi-title{font-size:13px;font-weight:500;color:var(--text)}
+.fi-sub{font-size:10px;color:var(--text3);margin-top:2px}
+.fi-amt{font-size:13px;font-weight:500;font-family:var(--mono)}
+.fi-amt.out{color:var(--red)}.fi-amt.in{color:var(--green)}
+.oi{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--border)}
+.oi:last-child{border-bottom:none}
+.av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;flex-shrink:0}
+.pb{width:28px;height:28px;border-radius:8px;border:0.5px solid var(--border2);background:var(--surf2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px}
+.pb.ok{background:rgba(0,214,143,.15);border-color:var(--green);color:var(--green)}
+.pb.ko{background:rgba(255,77,109,.1);border-color:var(--red);color:var(--red)}
+.si{padding:10px 0;border-bottom:0.5px solid var(--border)}
+.si:last-child{border-bottom:none}
+.si-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.fgrp{margin-bottom:12px}.flbl{font-size:11px;color:var(--text3);margin-bottom:5px}
+.finp{width:100%;background:var(--surf2);border:0.5px solid var(--border2);border-radius:var(--rs);
+  padding:12px 13px;font-size:14px;color:var(--text);font-family:var(--font);outline:none}
+.finp:focus{border-color:var(--green)}
+select.finp{appearance:none;cursor:pointer}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.chip{padding:6px 13px;border-radius:20px;border:0.5px solid var(--border2);background:transparent;
+  color:var(--text2);font-size:12px;font-family:var(--font);cursor:pointer}
+.chip.on{background:var(--green);color:#0a1628;border-color:var(--green);font-weight:500}
+.fmsg{font-size:12px;color:var(--red);margin-bottom:8px;min-height:16px}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:flex-end;justify-content:center}
+.modal{background:var(--surf);border-radius:var(--r) var(--r) 0 0;padding:20px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto}
+.modal-hd{font-size:15px;font-weight:600;color:var(--text);margin-bottom:16px;display:flex;justify-content:space-between;align-items:center}
+.mclose{background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:22px;line-height:1}
+#toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surf2);
+  border:0.5px solid var(--border2);border-radius:var(--rs);padding:10px 16px;font-size:13px;color:var(--text);
+  z-index:300;opacity:0;transition:.25s;white-space:nowrap;pointer-events:none;max-width:90vw}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;margin-bottom:14px}
+.tab{padding:6px 14px;border-radius:20px;border:0.5px solid var(--border2);background:transparent;
+  color:var(--text2);font-size:12px;font-family:var(--font);cursor:pointer;white-space:nowrap}
+.tab.on{background:var(--green);color:#0a1628;border-color:var(--green);font-weight:500}
+.phase-item{background:var(--surf2);border-radius:10px;padding:12px;margin-bottom:8px}
+.phase-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.phase-slider{width:100%;height:4px;border-radius:2px;background:var(--border);appearance:none;outline:none;cursor:pointer;accent-color:var(--green)}
+.pmi{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:0.5px solid var(--border)}
+.pmi:last-child{border-bottom:none}
+.empty{text-align:center;padding:40px 20px;color:var(--text3)}
+.empty svg{width:40px;height:40px;opacity:.3;margin:0 auto 12px;display:block}
+.empty p{font-size:13px}
+.divider{height:0.5px;background:var(--border);margin:10px 0}
+.conf-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;font-family:var(--font)}
+.conf-box{background:var(--surf);border-radius:var(--r);padding:22px;max-width:320px;width:100%;border:0.5px solid var(--border2)}
+</style>
+</head>
+<body>
+
+<div id="loading"><div class="spin"></div><div style="font-size:13px;color:var(--text3)">Chargement…</div></div>
+
+<div id="auth-screen">
+  <div class="auth-logo">WER<span>AL</span></div>
+  <div class="auth-sub">Gestion de chantier BTP<br>Sénégal · Secteur informel & formel</div>
+  <div class="auth-card">
+    <div id="step-phone">
+      <div class="auth-lbl">Numéro de téléphone</div>
+      <div class="phone-wrap">
+        <div class="phone-prefix">+221</div>
+        <input type="tel" id="phone-inp" placeholder="77 000 00 00" inputmode="numeric" maxlength="9">
+      </div>
+      <div id="recaptcha-container" style="margin-bottom:12px"></div>
+      <div class="fmsg" id="auth-msg"></div>
+      <button class="btn-p" onclick="sendOTP()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.1 1.18 2 2 0 012.11 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.3 7.69a16 16 0 006 6l1.05-1.05a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+        Recevoir le code SMS
+      </button>
+    </div>
+    <div id="step-otp" style="display:none">
+      <div class="auth-lbl">Code SMS reçu</div>
+      <input class="finp" type="text" id="otp-inp" placeholder="_ _ _ _ _ _" inputmode="numeric" maxlength="6" style="text-align:center;font-size:22px;letter-spacing:10px;font-family:var(--mono);margin-bottom:12px">
+      <div class="fmsg" id="otp-msg"></div>
+      <button class="btn-p" id="verify-btn" onclick="verifyOTP()">Se connecter</button>
+      <button style="width:100%;text-align:center;margin-top:10px;background:transparent;border:none;color:var(--text3);font-size:12px;cursor:pointer;font-family:var(--font)" onclick="resetAuth()">← Changer de numéro</button>
+    </div>
+  </div>
+</div>
+
+<div id="topbar" style="display:none">
+  <div class="tb-logo">WER<span>AL</span></div>
+  <div id="tb-chantier" style="font-size:11px;color:var(--text2);display:none;flex:1;margin-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+  <div class="tb-right">
+    <button class="tb-btn" onclick="toggleTheme()" id="theme-btn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+    <button class="tb-btn" onclick="doSignOut()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+    </button>
+  </div>
+</div>
+
+<div id="page-dash" class="page active" style="display:none"></div>
+<div id="page-chantier" class="page" style="display:none"></div>
+<div id="page-add" class="page" style="display:none"></div>
+<div id="page-ouvriers" class="page" style="display:none"></div>
+<div id="page-profil" class="page" style="display:none"></div>
+
+<div id="navbar" style="display:none">
+  <button class="ni on" id="ni-dash" onclick="goP('dash',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+    Chantiers
+  </button>
+  <button class="ni" id="ni-ouv" onclick="goP('ouvriers',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+    Ouvriers
+  </button>
+  <button class="ni-add" onclick="goP('add',null)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
+  <button class="ni" id="ni-pro" onclick="goP('profil',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    Profil
+  </button>
+</div>
+<div id="toast"></div>
+
+<script>
+// CONFIG — à remplacer par vos vraies clés Firebase
+const FB={
+  apiKey:"AIzaSyAvY2onqOWjsK4XKW_sF3rEaZB36Z9mMMk",
+  authDomain:"weral-app.firebaseapp.com",
+  projectId:"weral-app",
+  storageBucket:"weral-app.firebasestorage.app",
+  messagingSenderId:"291997041067",
+  appId:"1:291997041067:web:be4ae345069b1d7a2fd2ee"
+};
+firebase.initializeApp(FB);
+const auth=firebase.auth();
+const db=firebase.firestore();
+db.enablePersistence().catch(()=>{});
+
+// STATE
+let uid=null,userPhone='',userRole='operateur',userName='';
+let chantiers=[],fournisseurs=[],prixMarche=[],ouvriersList=[];
+let currentCid=null,confirmResult=null,rcv=null;
+let unsub1=null,unsub2=null;
+const AVC=['#1c3d6e','#0d4a3a','#4a1c3d','#3d3a0d','#1a3d5c'];
+let ttt=null;
+
+// ── AUTH ──────────────────────────────────
+function initRCV(){
+  if(rcv)return;
+  rcv=new firebase.auth.RecaptchaVerifier('recaptcha-container',{size:'invisible',callback:()=>{}});
+  rcv.render().catch(()=>{});
+}
+
+async function sendOTP(){
+  const p=document.getElementById('phone-inp').value.replace(/\s/g,'');
+  const msg=document.getElementById('auth-msg');
+  if(p.length<8){msg.textContent='Numéro invalide';return;}
+  msg.textContent='Envoi en cours…';
+  try{
+    initRCV();
+    confirmResult=await auth.signInWithPhoneNumber('+221'+p,rcv);
+    document.getElementById('step-phone').style.display='none';
+    document.getElementById('step-otp').style.display='block';
+    msg.textContent='';
+    toast('Code envoyé au +221'+p);
+  }catch(e){
+    msg.textContent='Erreur: '+e.message;
+    if(rcv){rcv.clear();rcv=null;}
+  }
+}
+
+async function verifyOTP(){
+  const code=document.getElementById('otp-inp').value.trim();
+  const msg=document.getElementById('otp-msg');
+  const btn=document.getElementById('verify-btn');
+  if(code.length!==6){msg.textContent='Code à 6 chiffres';return;}
+  btn.disabled=true;btn.innerHTML='<div class="spin" style="width:16px;height:16px;border-width:2px"></div> Vérification…';
+  try{await confirmResult.confirm(code);}
+  catch(e){msg.textContent='Code incorrect';btn.disabled=false;btn.innerHTML='Se connecter';}
+}
+
+function resetAuth(){
+  document.getElementById('step-otp').style.display='none';
+  document.getElementById('step-phone').style.display='block';
+  document.getElementById('auth-msg').textContent='';
+  confirmResult=null;if(rcv){rcv.clear();rcv=null;}
+}
+
+async function doSignOut(){
+  if(!confirm('Se déconnecter ?'))return;
+  if(unsub1)unsub1();if(unsub2)unsub2();
+  await auth.signOut();
+}
+
+// ── INIT ──────────────────────────────────
+auth.onAuthStateChanged(async user=>{
+  document.getElementById('loading').style.display='none';
+  if(!user){
+    document.getElementById('auth-screen').style.display='flex';
+    return;
+  }
+  uid=user.uid;userPhone=user.phoneNumber||'';
+  document.getElementById('auth-screen').style.display='none';
+  document.getElementById('topbar').style.display='flex';
+  document.getElementById('navbar').style.display='flex';
+  document.querySelectorAll('.page').forEach(p=>p.style.display='block');
+  await loadProfile();
+  listenChantiers();
+  listenFournisseurs();
+  loadPrix();
+  renderDash();
+});
+
+async function loadProfile(){
+  try{
+    const d=await db.collection('users').doc(uid).collection('data').doc('profile').get();
+    if(d.exists()){const p=d.data();userRole=p.role||'operateur';userName=p.name||userPhone;}
+    else showRoleModal();
+  }catch(e){}
+}
+
+function showRoleModal(){
+  const bg=mkModal(`
+    <div class="modal-hd">Bienvenue sur WERAL</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:16px">Quel est votre rôle ?</p>
+    <div class="fgrp"><div class="flbl">Votre nom</div><input class="finp" id="rm-nom" placeholder="Prénom et nom"></div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">
+      <button class="btn-p" onclick="saveRole('operateur')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+        Opérateur — Chef de chantier / Conducteur
+      </button>
+      <button class="btn-o" style="width:100%;padding:14px" onclick="saveRole('patron')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px"><path d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>
+        Patron / Superviseur
+      </button>
+    </div>`);
+  document.body.appendChild(bg);
+}
+
+async function saveRole(role){
+  const nom=document.getElementById('rm-nom')?.value.trim()||userPhone;
+  userRole=role;userName=nom;
+  await db.collection('users').doc(uid).collection('data').doc('profile').set({role,name:nom,phone:userPhone});
+  document.querySelector('.modal-bg')?.remove();
+  renderDash();
+}
+
+// ── NAV ───────────────────────────────────
+function goP(p,btn){
+  document.querySelectorAll('.page').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.ni').forEach(e=>e.classList.remove('on'));
+  document.getElementById('page-'+p).classList.add('active');
+  if(btn)btn.classList.add('on');
+  document.getElementById('tb-chantier').style.display='none';
+  if(p==='dash')renderDash();
+  else if(p==='ouvriers')renderOuvriers();
+  else if(p==='profil')renderProfil();
+  else if(p==='add')renderAdd();
+  else if(p==='chantier')renderChantierDetail();
+}
+
+function openChan(id){
+  currentCid=id;
+  const c=chantiers.find(x=>x.id===id);
+  if(c){const tb=document.getElementById('tb-chantier');tb.textContent=c.nom;tb.style.display='block';}
+  document.querySelectorAll('.page').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.ni').forEach(e=>e.classList.remove('on'));
+  document.getElementById('page-chantier').classList.add('active');
+  renderChantierDetail();
+}
+
+// ── FIRESTORE ─────────────────────────────
+function listenChantiers(){
+  if(unsub1)unsub1();
+  unsub1=db.collection('users').doc(uid).collection('chantiers').orderBy('createdAt','desc').onSnapshot(s=>{
+    chantiers=s.docs.map(d=>({id:d.id,...d.data()}));
+    if(document.getElementById('page-dash').classList.contains('active'))renderDash();
+  });
+}
+function listenFournisseurs(){
+  if(unsub2)unsub2();
+  unsub2=db.collection('users').doc(uid).collection('fournisseurs').onSnapshot(s=>{
+    fournisseurs=s.docs.map(d=>({id:d.id,...d.data()}));
+  });
+}
+function loadPrix(){
+  db.collection('users').doc(uid).collection('prix').get().then(s=>{
+    prixMarche=s.docs.map(d=>({id:d.id,...d.data()}));
+    if(document.getElementById('page-profil').classList.contains('active'))renderProfil();
+  });
+}
+const CP=id=>db.collection('users').doc(uid).collection('chantiers').doc(id);
+const FP=id=>CP(id).collection('flux');
+const SP=id=>CP(id).collection('stock');
+const PP=id=>CP(id).collection('phases');
+const OP=()=>db.collection('users').doc(uid).collection('ouvriers');
+
+// ── DASHBOARD ─────────────────────────────
+function renderDash(){
+  const el=document.getElementById('page-dash');
+  const actifs=chantiers.filter(c=>c.statut==='actif').length;
+  const avances=chantiers.reduce((s,c)=>s+(c.avancePerso||0),0);
+  const reliquats=chantiers.reduce((s,c)=>s+(c.reliquat||0),0);
+  const paies=chantiers.reduce((s,c)=>s+(c.paieAttente||0),0);
+  el.innerHTML=`
+    <div class="metrics">
+      <div class="metric"><div class="mlbl">Chantiers actifs</div><div class="mval">${actifs}</div></div>
+      <div class="metric"><div class="mlbl">Reliquats clients</div><div class="mval a">${fmt(reliquats)} F</div></div>
+      <div class="metric"><div class="mlbl">Avances perso</div><div class="mval r">${fmt(avances)} F</div></div>
+      <div class="metric"><div class="mlbl">Paies en attente</div><div class="mval a">${fmt(paies)} F</div></div>
+    </div>
+    <div class="sh"><h3>Mes chantiers</h3><button class="add-btn" onclick="showNewChan()">+ Nouveau</button></div>
+    ${!chantiers.length?`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><p>Aucun chantier<br><span style="font-size:11px">Appuyez sur + pour commencer</span></p></div>`:chantiers.map(c=>{
+      const pct=c.avancement||0;
+      const col=pct>=100?'var(--green)':pct>=60?'var(--blue)':'var(--amber)';
+      const st=c.statut==='actif'?'bg':c.statut==='pause'?'ba':'bb';
+      const sl=c.statut==='actif'?'En cours':c.statut==='pause'?'En pause':'Terminé';
+      return `<div class="cc" onclick="openChan('${c.id}')">
+        <div class="cc-head">
+          <div><div class="cc-name">${c.nom}</div><div class="cc-sub">${c.client||'—'} · ${c.localisation||'—'}</div></div>
+          <span class="badge ${st}">${sl}</span>
+        </div>
+        <div class="prog"><div class="prog-f" style="width:${pct}%;background:${col}"></div></div>
+        <div class="cc-foot"><span>${pct}% · ${c.type==='devis'?'Sur devis':'Forfait'}</span>
+          <span style="color:${c.reliquat>0?'var(--amber)':'var(--text3)'}">${c.reliquat>0?'Reliquat '+fmt(c.reliquat)+' F':'—'}</span></div>
+      </div>`;
+    }).join('')}`;
+}
+
+// ── CHANTIER DETAIL ───────────────────────
+async function renderChantierDetail(){
+  const el=document.getElementById('page-chantier');
+  const c=chantiers.find(x=>x.id===currentCid);
+  if(!c){el.innerHTML='';return;}
+  let flux=[];
+  try{const s=await FP(currentCid).orderBy('createdAt','desc').limit(20).get();flux=s.docs.map(d=>({id:d.id,...d.data()}));}catch(e){}
+  const tin=flux.filter(f=>f.sens==='entree').reduce((s,f)=>s+(f.montant||0),0);
+  const tout=flux.filter(f=>f.sens==='sortie').reduce((s,f)=>s+(f.montant||0),0);
+  const solde=tin-tout;
+  el.innerHTML=`
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button class="btn-o" onclick="goP('dash',document.getElementById('ni-dash'))" style="padding:8px 12px;flex-shrink:0">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="tabs" style="flex:1;margin:0">
+        <button class="tab on" onclick="chanTab(this,'flux')">Flux</button>
+        <button class="tab" onclick="chanTab(this,'stock')">Stock</button>
+        <button class="tab" onclick="chanTab(this,'phases')">Phases</button>
+        <button class="tab" onclick="chanTab(this,'infos')">Infos</button>
+      </div>
+    </div>
+    <div class="metrics">
+      <div class="metric"><div class="mlbl">Entrées</div><div class="mval g">${fmt(tin)} F</div></div>
+      <div class="metric"><div class="mlbl">Sorties</div><div class="mval r">${fmt(tout)} F</div></div>
+      <div class="metric"><div class="mlbl">Solde</div><div class="mval ${solde>=0?'g':'r'}">${fmt(solde)} F</div></div>
+      <div class="metric"><div class="mlbl">Avancement</div><div class="mval">${c.avancement||0}%</div></div>
+    </div>
+    <div id="ctab">${renderFluxList(flux,c)}</div>`;
+}
+
+function chanTab(btn,tab){
+  document.querySelectorAll('#page-chantier .tab').forEach(t=>t.classList.remove('on'));
+  btn.classList.add('on');
+  const c=chantiers.find(x=>x.id===currentCid);
+  const el=document.getElementById('ctab');
+  if(tab==='flux')loadFlux(el,c);
+  else if(tab==='stock')loadStock(el,c);
+  else if(tab==='phases')loadPhases(el,c);
+  else if(tab==='infos')el.innerHTML=renderInfos(c);
+}
+
+function renderFluxList(flux,c){
+  return `<div class="sh"><h3>Flux financiers</h3><button class="add-btn" onclick="goP('add',null)">+ Ajouter</button></div>
+    ${!flux.length?`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg><p>Aucun flux enregistré</p></div>`:`
+    <div class="card" style="padding:0 16px">
+      ${flux.map(f=>`<div class="fi">
+        <div class="fi-icon" style="background:${f.sens==='entree'?'rgba(0,214,143,.1)':'rgba(255,77,109,.1)'}">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${f.sens==='entree'?'var(--green)':'var(--red)'}" stroke-width="2">
+            ${f.sens==='entree'?'<polyline points="18 15 12 9 6 15"/>':'<polyline points="6 9 12 15 18 9"/>'}
+          </svg>
+        </div>
+        <div class="fi-info">
+          <div class="fi-title">${f.libelle||f.cat||'—'}</div>
+          <div class="fi-sub">${f.date||''}${f.fournisseur?' · '+f.fournisseur:''}${f.avancePerso?' · <span style="color:var(--amber)">Avance perso</span>':''}</div>
+        </div>
+        <div class="fi-amt ${f.sens==='entree'?'in':'out'}">${f.sens==='entree'?'+':'−'}${fmt(f.montant)} F</div>
+      </div>`).join('')}
+    </div>`}`;
+}
+
+async function loadFlux(el,c){
+  el.innerHTML=loading();
+  try{const s=await FP(currentCid).orderBy('createdAt','desc').limit(30).get();
+    el.innerHTML=renderFluxList(s.docs.map(d=>({id:d.id,...d.data()})),c);}
+  catch(e){el.innerHTML=err();}
+}
+
+async function loadStock(el,c){
+  el.innerHTML=loading();
+  try{
+    const items=(await SP(currentCid).get()).docs.map(d=>({id:d.id,...d.data()}));
+    el.innerHTML=`<div class="sh"><h3>Stock matériaux</h3><button class="add-btn" onclick="showAddStock('${c.id}')">+ Entrée</button></div>
+      ${!items.length?`<div class="empty"><p>Aucun article en stock</p></div>`:`
+      <div class="card" style="padding:0 16px">
+        ${items.map(it=>{const pct=it.entree>0?Math.round((it.reste/it.entree)*100):0;const col=pct>50?'var(--green)':pct>20?'var(--amber)':'var(--red)';
+          return `<div class="si"><div class="si-h"><span style="font-size:13px;font-weight:500;color:var(--text)">${it.article}</span>
+            <span class="badge ${pct>20?'bg':'br'}">${it.reste} ${it.unite}</span></div>
+            <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Entré: ${it.entree} · Utilisé: ${(it.entree-it.reste).toFixed(1)}</div>
+            <div class="prog"><div class="prog-f" style="width:${pct}%;background:${col}"></div></div>
+          </div>`;}).join('')}
+      </div>`}`;
+  }catch(e){el.innerHTML=err();}
+}
+
+async function loadPhases(el,c){
+  el.innerHTML=loading();
+  try{
+    const phases=(await PP(currentCid).get()).docs.map(d=>({id:d.id,...d.data()}));
+    const avg=phases.length?Math.round(phases.reduce((s,p)=>s+(p.pct||0),0)/phases.length):0;
+    el.innerHTML=`<div class="sh"><h3>Phases chantier</h3><button class="add-btn" onclick="showAddPhase('${c.id}')">+ Phase</button></div>
+      ${!phases.length?`<div class="empty"><p>Aucune phase définie</p></div>`:`
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+          <span style="font-size:12px;color:var(--text2)">Avancement global</span>
+          <span style="font-size:20px;font-weight:500;font-family:var(--mono);color:var(--green)">${avg}%</span>
+        </div>
+        <div class="prog" style="height:6px"><div class="prog-f" style="width:${avg}%;background:var(--green)"></div></div>
+      </div>
+      ${phases.map(p=>`<div class="phase-item">
+        <div class="phase-hd">
+          <span style="font-size:13px;font-weight:500;color:var(--text)">${p.nom}</span>
+          <span style="font-size:13px;font-weight:500;font-family:var(--mono);color:var(--green)" id="pv-${p.id}">${p.pct||0}%</span>
+        </div>
+        <input type="range" class="phase-slider" min="0" max="100" value="${p.pct||0}" step="5"
+          oninput="document.getElementById('pv-${p.id}').textContent=this.value+'%'"
+          onchange="updPhase('${c.id}','${p.id}',this.value)">
+      </div>`).join('')}`}`;
+  }catch(e){el.innerHTML=err();}
+}
+
+async function updPhase(cid,pid,val){
+  await PP(cid).doc(pid).update({pct:parseInt(val)});
+  const s=await PP(cid).get();
+  const avg=s.docs.length?Math.round(s.docs.reduce((sum,d)=>sum+(d.data().pct||0),0)/s.docs.length):0;
+  await CP(cid).update({avancement:avg});
+  chantiers=chantiers.map(c=>c.id===cid?{...c,avancement:avg}:c);
+  toast('Avancement: '+avg+'%');
+}
+
+function renderInfos(c){
+  return `<div class="card">
+    <div class="card-title">Informations</div>
+    ${[['Nom',c.nom],['Client',c.client||'—'],['Localisation',c.localisation||'—'],
+      ['Type',c.type==='devis'?'Sur devis':'Forfait'],
+      ['Budget',c.budget?fmt(c.budget)+' F':'—'],['Démarrage',c.dateDebut||'—'],
+      ['Fin prévue',c.dateFin||'—'],['Statut',c.statut||'—']
+    ].map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:0.5px solid var(--border)">
+      <span style="font-size:12px;color:var(--text3)">${l}</span>
+      <span style="font-size:13px;color:var(--text)">${v}</span>
+    </div>`).join('')}
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn-o" style="flex:1" onclick="showEditChan('${c.id}')">Modifier</button>
+      <button class="btn-o" style="flex:1;color:var(--green);border-color:var(--green)" onclick="exportPDF('${c.id}')">Rapport PDF</button>
+    </div>
+  </div>`;
+}
+
+// ── PAGE ADD ──────────────────────────────
+let addSens='sortie', addCat='materiaux';
+
+function renderAdd(){
+  const el=document.getElementById('page-add');
+  el.innerHTML=`
+    <div class="sh" style="margin-bottom:14px"><h3 style="font-size:14px;color:var(--text);text-transform:none;letter-spacing:0">Ajouter</h3></div>
+    <div class="tabs">
+      <button class="tab on" onclick="setAddTab(this,'flux')">Flux financier</button>
+      <button class="tab" onclick="setAddTab(this,'ouvrier')">Ouvrier</button>
+      <button class="tab" onclick="setAddTab(this,'stock')">Stock</button>
+      <button class="tab" onclick="setAddTab(this,'chantier')">Nouveau chantier</button>
+    </div>
+    <div id="add-body">${renderAddFlux()}</div>`;
+}
+
+function setAddTab(btn,t){
+  document.querySelectorAll('#page-add .tab').forEach(x=>x.classList.remove('on'));
+  btn.classList.add('on');
+  const el=document.getElementById('add-body');
+  if(t==='flux')el.innerHTML=renderAddFlux();
+  else if(t==='ouvrier')el.innerHTML=renderAddOuv();
+  else if(t==='stock')el.innerHTML=renderAddStk();
+  else if(t==='chantier')el.innerHTML=renderChanForm();
+}
+
+const copts=()=>chantiers.map(c=>`<option value="${c.id}">${c.nom}</option>`).join('');
+const fopts=()=>fournisseurs.map(f=>`<option value="${f.nom}">${f.nom}</option>`).join('');
+
+function renderAddFlux(){
+  return `<div class="card">
+    <div class="fgrp"><div class="flbl">Sens</div>
+      <div class="chips">
+        <div class="chip on" id="cs-sortie" onclick="setSens(this,'sortie')">Sortie (dépense)</div>
+        <div class="chip" id="cs-entree" onclick="setSens(this,'entree')">Entrée (paiement reçu)</div>
+      </div>
+    </div>
+    <div id="cat-wrap" class="fgrp"><div class="flbl">Catégorie</div>
+      <div class="chips">
+        <div class="chip on" onclick="setCat(this,'materiaux')">Matériaux</div>
+        <div class="chip" onclick="setCat(this,'mo')">Main d'œuvre</div>
+        <div class="chip" onclick="setCat(this,'transport')">Transport</div>
+        <div class="chip" onclick="setCat(this,'engins')">Engins</div>
+        <div class="chip" onclick="setCat(this,'divers')">Divers</div>
+      </div>
+    </div>
+    <div class="fgrp"><div class="flbl">Chantier</div><select class="finp" id="fc">${copts()}</select></div>
+    <div class="fgrp"><div class="flbl">Montant (FCFA)</div><input class="finp" type="text" id="fm" placeholder="0" inputmode="numeric" oninput="fmtAmt(this)"></div>
+    <div class="fgrp"><div class="flbl">Libellé</div><input class="finp" id="fl" placeholder="Ciment × 80 sacs, Paiement client…"></div>
+    <div id="ffourn-wrap" class="fgrp"><div class="flbl">Fournisseur</div><select class="finp" id="ff"><option value="">— Aucun —</option>${fopts()}</select></div>
+    <div class="fgrp"><div class="flbl">Date</div><input class="finp" type="date" id="fd" value="${today()}"></div>
+    <div class="fgrp" style="display:flex;align-items:center;gap:10px">
+      <input type="checkbox" id="fa" style="width:16px;height:16px;accent-color:var(--amber)">
+      <label for="fa" style="font-size:13px;color:var(--text2);cursor:pointer">Avance personnelle (à rembourser)</label>
+    </div>
+    <div class="fgrp"><div class="flbl">Commentaire</div><input class="finp" id="fcmt" placeholder="Sans reçu, livraison chantier…"></div>
+    <div class="fmsg" id="fmsg"></div>
+    <button class="btn-p" id="fsave" onclick="saveFlux()">
+      <span id="fsave-inner" style="display:flex;align-items:center;gap:8px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>
+        Enregistrer
+      </span>
+    </button>
+  </div>`;
+}
+
+function setSens(btn,s){
+  document.querySelectorAll('#cs-sortie,#cs-entree').forEach(c=>c.classList.remove('on'));
+  btn.classList.add('on');addSens=s;
+  document.getElementById('cat-wrap').style.display=s==='sortie'?'block':'none';
+  document.getElementById('ffourn-wrap').style.display=s==='sortie'?'block':'none';
+}
+
+function setCat(btn,c){
+  document.querySelectorAll('#cat-wrap .chip').forEach(x=>x.classList.remove('on'));
+  btn.classList.add('on');addCat=c;
+}
+
+async function saveFlux(){
+  const btn=document.getElementById('fsave');
+  const inner=document.getElementById('fsave-inner');
+  const msg=document.getElementById('fmsg');
+  const cid=document.getElementById('fc')?.value;
+  const mont=parseFloat(document.getElementById('fm').value.replace(/\s/g,'').replace(/,/g,'.')||0);
+  const date=document.getElementById('fd')?.value;
+  if(!cid||!chantiers.find(x=>x.id===cid)){msg.textContent='Sélectionnez un chantier';return;}
+  if(!mont||isNaN(mont)||mont<=0){msg.textContent='Montant invalide';return;}
+  if(!date){msg.textContent='Date obligatoire';return;}
+  msg.textContent='';btn.disabled=true;
+  if(inner)inner.innerHTML='<div class="spin" style="width:14px;height:14px;border-width:2px"></div> Enregistrement…';
+  const data={sens:addSens,cat:addCat,montant:mont,
+    libelle:document.getElementById('fl')?.value.trim()||addCat,
+    date,fournisseur:document.getElementById('ff')?.value||'',
+    avancePerso:document.getElementById('fa')?.checked||false,
+    cmt:document.getElementById('fcmt')?.value.trim()||'',
+    createdAt:new Date().toISOString()};
+  try{
+    await FP(cid).add(data);
+    if(data.avancePerso){const c=chantiers.find(x=>x.id===cid);await CP(cid).update({avancePerso:(c?.avancePerso||0)+mont});}
+    if(data.sens==='entree'){
+      const c=chantiers.find(x=>x.id===cid);
+      const newReliquat=Math.max(0,(c?.reliquat||0)-mont);
+      await CP(cid).update({reliquat:newReliquat});
+    }
+    toast('Enregistré ✓');renderAdd();
+  }catch(e){
+    msg.textContent='Erreur: '+e.message.slice(0,60);
+    btn.disabled=false;
+    if(inner)inner.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> Enregistrer';
+  }
+}
+
+function renderAddOuv(){
+  return `<div class="card">
+    <div class="fgrp"><div class="flbl">Nom complet</div><input class="finp" id="on" placeholder="Mamadou Bâ"></div>
+    <div class="fgrp"><div class="flbl">Téléphone (facultatif)</div><input class="finp" id="ot" type="tel" placeholder="+221 77 000 00 00"></div>
+    <div class="fgrp"><div class="flbl">Spécialité</div>
+      <select class="finp" id="os"><option>Maçon</option><option>Ferrailleur</option><option>Coffreur</option>
+        <option>Carreleur</option><option>Peintre</option><option>Électricien</option>
+        <option>Plombier</option><option>Manœuvre</option><option>Chef chantier</option><option>Autre</option>
+      </select>
+    </div>
+    <div class="fgrp"><div class="flbl">Mode de paiement</div>
+      <div class="chips">
+        <div class="chip on" onclick="this.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));this.classList.add('on')">Journalier</div>
+        <div class="chip" onclick="this.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));this.classList.add('on')">Quinzaine</div>
+        <div class="chip" onclick="this.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));this.classList.add('on')">À la tâche</div>
+      </div>
+    </div>
+    <div class="fgrp"><div class="flbl">Taux (FCFA/jour)</div><input class="finp" id="otr" type="text" placeholder="3 500" inputmode="numeric" oninput="fmtAmt(this)"></div>
+    <div class="fmsg" id="omsg"></div>
+    <button class="btn-p" onclick="saveOuv()">Enregistrer l'ouvrier</button>
+  </div>`;
+}
+
+async function saveOuv(){
+  const nom=document.getElementById('on')?.value.trim();
+  const msg=document.getElementById('omsg');
+  if(!nom){msg.textContent='Nom obligatoire';return;}
+  const mode=document.querySelector('#page-add .chips .chip.on')?.textContent||'Journalier';
+  const taux=parseFloat(document.getElementById('otr')?.value.replace(/\s/g,'')||0);
+  await OP().add({nom,tel:document.getElementById('ot')?.value||'',spec:document.getElementById('os')?.value||'',mode,taux,createdAt:new Date().toISOString()});
+  toast('Ouvrier ajouté ✓');renderAdd();
+}
+
+function renderAddStk(){
+  return `<div class="card">
+    <div class="fgrp"><div class="flbl">Chantier</div><select class="finp" id="sc">${copts()}</select></div>
+    <div class="fgrp"><div class="flbl">Article</div><input class="finp" id="sa" placeholder="Ciment SOCOCIM, Fer ø12, Parpaings…"></div>
+    <div class="frow">
+      <div class="fgrp"><div class="flbl">Quantité</div><input class="finp" id="sq" type="number" placeholder="80" min="0" step="0.5"></div>
+      <div class="fgrp"><div class="flbl">Unité</div><select class="finp" id="su"><option>sacs</option><option>tonnes</option><option>m³</option><option>m²</option><option>ml</option><option>barres</option><option>pièces</option><option>L</option></select></div>
+    </div>
+    <div class="frow">
+      <div class="fgrp"><div class="flbl">Prix unitaire (F)</div><input class="finp" id="spu" type="text" placeholder="4 000" inputmode="numeric" oninput="fmtAmt(this)"></div>
+      <div class="fgrp"><div class="flbl">Fournisseur</div><input class="finp" id="sf" placeholder="DIALLO BTP"></div>
+    </div>
+    <div class="fmsg" id="smsg"></div>
+    <button class="btn-p" onclick="saveStk()">Enregistrer entrée stock</button>
+  </div>`;
+}
+
+async function saveStk(){
+  const cid=document.getElementById('sc')?.value;
+  const art=document.getElementById('sa')?.value.trim();
+  const qte=parseFloat(document.getElementById('sq')?.value||0);
+  const msg=document.getElementById('smsg');
+  if(!art||!qte){msg.textContent='Article et quantité obligatoires';return;}
+  const unite=document.getElementById('su')?.value||'';
+  const pu=parseFloat(document.getElementById('spu')?.value.replace(/\s/g,'')||0);
+  const fourn=document.getElementById('sf')?.value.trim()||'';
+  // Merge or create stock entry
+  const ex=(await SP(cid).where('article','==',art).get());
+  if(!ex.empty){await ex.docs[0].ref.update({entree:ex.docs[0].data().entree+qte,reste:ex.docs[0].data().reste+qte});}
+  else{await SP(cid).add({article:art,entree:qte,reste:qte,unite,pu,fournisseur:fourn,createdAt:new Date().toISOString()});}
+  if(pu>0){await FP(cid).add({sens:'sortie',cat:'materiaux',montant:qte*pu,libelle:art+' × '+qte+' '+unite,fournisseur:fourn,date:today(),avancePerso:false,createdAt:new Date().toISOString()});}
+  toast('Stock mis à jour ✓');renderAdd();
+}
+
+function renderChanForm(){
+  return `<div class="card">
+    <div class="fgrp"><div class="flbl">Nom du chantier</div><input class="finp" id="cn" placeholder="Villa Ngor, Immeuble R+3…"></div>
+    <div class="fgrp"><div class="flbl">Client</div><input class="finp" id="ccl" placeholder="M. Diallo, SCI Teranga…"></div>
+    <div class="fgrp"><div class="flbl">Localisation</div><input class="finp" id="cloc" placeholder="Dakar, Thiès, Mbour…"></div>
+    <div class="fgrp"><div class="flbl">Type de marché</div>
+      <div class="chips">
+        <div class="chip on" id="ct-for" onclick="document.getElementById('ct-dev').classList.remove('on');this.classList.add('on')">Forfait / Informel</div>
+        <div class="chip" id="ct-dev" onclick="document.getElementById('ct-for').classList.remove('on');this.classList.add('on')">Sur devis</div>
+      </div>
+    </div>
+    <div class="fgrp"><div class="flbl">Budget total (FCFA)</div><input class="finp" id="cbud" type="text" placeholder="0" inputmode="numeric" oninput="fmtAmt(this)"></div>
+    <div class="fgrp"><div class="flbl">Reliquat client (reste à percevoir)</div><input class="finp" id="crel" type="text" placeholder="0" inputmode="numeric" oninput="fmtAmt(this)"></div>
+    <div class="frow">
+      <div class="fgrp"><div class="flbl">Date début</div><input class="finp" type="date" id="cdeb" value="${today()}"></div>
+      <div class="fgrp"><div class="flbl">Fin prévue</div><input class="finp" type="date" id="cfin"></div>
+    </div>
+    <div class="fmsg" id="cnmsg"></div>
+    <button class="btn-p" onclick="saveChan()">Créer le chantier</button>
+  </div>`;
+}
+
+async function saveChan(){
+  const nom=document.getElementById('cn')?.value.trim();
+  const msg=document.getElementById('cnmsg');
+  if(!nom){msg.textContent='Nom obligatoire';return;}
+  const type=document.getElementById('ct-dev')?.classList.contains('on')?'devis':'forfait';
+  const budget=parseFloat(document.getElementById('cbud')?.value.replace(/\s/g,'')||0);
+  const reliquat=parseFloat(document.getElementById('crel')?.value.replace(/\s/g,'')||0);
+  const data={nom,client:document.getElementById('ccl')?.value.trim()||'',localisation:document.getElementById('cloc')?.value.trim()||'',
+    type,budget,reliquat,statut:'actif',avancement:0,avancePerso:0,paieAttente:0,
+    dateDebut:document.getElementById('cdeb')?.value||today(),dateFin:document.getElementById('cfin')?.value||'',
+    createdAt:new Date().toISOString(),operateurId:uid};
+  const ref=await db.collection('users').doc(uid).collection('chantiers').add(data);
+  toast('Chantier créé ✓');
+  currentCid=ref.id;
+  openChan(ref.id);
+}
+
+function showEditChan(id){
+  const c=chantiers.find(x=>x.id===id);if(!c)return;
+  const bg=mkModal(`
+    <div class="modal-hd">Modifier le chantier<button class="mclose" onclick="this.closest('.modal-bg').remove()">×</button></div>
+    <div class="fgrp"><div class="flbl">Statut</div>
+      <select class="finp" id="es">
+        <option value="actif" ${c.statut==='actif'?'selected':''}>En cours</option>
+        <option value="pause" ${c.statut==='pause'?'selected':''}>En pause</option>
+        <option value="termine" ${c.statut==='termine'?'selected':''}>Terminé</option>
+      </select>
+    </div>
+    <div class="fgrp"><div class="flbl">Reliquat client (F)</div><input class="finp" id="er" type="text" value="${fmt(c.reliquat||0)}" inputmode="numeric" oninput="fmtAmt(this)"></div>
+    <div class="fgrp"><div class="flbl">Avances perso non remboursées (F)</div><input class="finp" id="ea" type="text" value="${fmt(c.avancePerso||0)}" inputmode="numeric" oninput="fmtAmt(this)"></div>
+    <div class="fgrp"><div class="flbl">Paies en attente (F)</div><input class="finp" id="ep" type="text" value="${fmt(c.paieAttente||0)}" inputmode="numeric" oninput="fmtAmt(this)"></div>
+    <button class="btn-p" onclick="updateChan('${id}',this.closest('.modal-bg'))">Enregistrer</button>`);
+  document.body.appendChild(bg);
+}
+
+async function updateChan(id,bg){
+  await CP(id).update({
+    statut:document.getElementById('es')?.value,
+    reliquat:parseFloat(document.getElementById('er')?.value.replace(/\s/g,'')||0),
+    avancePerso:parseFloat(document.getElementById('ea')?.value.replace(/\s/g,'')||0),
+    paieAttente:parseFloat(document.getElementById('ep')?.value.replace(/\s/g,'')||0),
+  });
+  bg.remove();toast('Mis à jour ✓');
+}
+
+// ── OUVRIERS PAGE ─────────────────────────
+const presences={};
+async function renderOuvriers(){
+  const el=document.getElementById('page-ouvriers');
+  el.innerHTML=loading();
+  const snap=await OP().get();
+  ouvriersList=snap.docs.map(d=>({id:d.id,...d.data()}));
+  if(!ouvriersList.length){
+    el.innerHTML=`<div class="sh"><h3>Main d'œuvre</h3><button class="add-btn" onclick="goP('add',null)">+ Ouvrier</button></div>
+      <div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg><p>Aucun ouvrier enregistré</p></div>`;
+    return;
+  }
+  el.innerHTML=`
+    <div class="sh"><h3>Pointage — ${today()}</h3><button class="add-btn" onclick="goP('add',null)">+ Ouvrier</button></div>
+    <div class="fgrp"><div class="flbl">Chantier</div><select class="finp" id="pc">${copts()}</select></div>
+    <div class="card" style="padding:0 16px">
+      ${ouvriersList.map(o=>{
+        const init=o.nom.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+        const col=AVC[o.nom.charCodeAt(0)%AVC.length];
+        return `<div class="oi">
+          <div class="av" style="background:${col};color:rgba(255,255,255,.8)">${init}</div>
+          <div style="flex:1"><div style="font-size:13px;font-weight:500;color:var(--text)">${o.nom}</div>
+            <div style="font-size:10px;color:var(--text3)">${o.spec||''} · ${fmt(o.taux||0)} F/j</div></div>
+          <button class="pb" id="pb-${o.id}" onclick="togP('${o.id}','${o.nom.replace(/'/g,"\\'")}',${o.taux||0})">—</button>
+        </div>`;
+      }).join('')}
+    </div>
+    <button class="btn-p" style="margin-top:14px" onclick="valPoints()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>
+      Valider la présence
+    </button>`;
+}
+
+function togP(id,nom,taux){
+  const btn=document.getElementById('pb-'+id);
+  if(!presences[id]){presences[id]={nom,taux,ok:true};btn.textContent='✓';btn.className='pb ok';}
+  else if(presences[id].ok){presences[id].ok=false;btn.textContent='✕';btn.className='pb ko';}
+  else{delete presences[id];btn.textContent='—';btn.className='pb';}
+}
+
+async function valPoints(){
+  const cid=document.getElementById('pc')?.value;
+  if(!cid){toast('Sélectionnez un chantier');return;}
+  const ps=Object.entries(presences).filter(([,v])=>v.ok);
+  if(!ps.length){toast('Aucune présence cochée');return;}
+  const total=ps.reduce((s,[,v])=>s+v.taux,0);
+  for(const[id,{nom,taux}]of ps){
+    await FP(cid).add({sens:'sortie',cat:'mo',montant:taux,libelle:'Journée '+nom,date:today(),avancePerso:false,createdAt:new Date().toISOString()});
+  }
+  const c=chantiers.find(x=>x.id===cid);
+  await CP(cid).update({paieAttente:(c?.paieAttente||0)+total});
+  toast(ps.length+' présence(s) · '+fmt(total)+' F');
+  Object.keys(presences).forEach(k=>delete presences[k]);
+  renderOuvriers();
+}
+
+// ── PROFIL ────────────────────────────────
+function renderProfil(){
+  const el=document.getElementById('page-profil');
+  el.innerHTML=`
+    <div class="card">
+      <div class="card-title">Mon compte</div>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <div class="av" style="width:44px;height:44px;font-size:16px;background:var(--surf2);color:var(--green)">${(userName||'?')[0].toUpperCase()}</div>
+        <div>
+          <div style="font-size:15px;font-weight:500;color:var(--text)">${userName||'—'}</div>
+          <div style="font-size:12px;color:var(--text3)">${userPhone} · ${userRole==='patron'?'Patron':'Opérateur'}</div>
+        </div>
+      </div>
+      <button class="btn-o" style="width:100%" onclick="doSignOut()">Déconnexion</button>
+    </div>
+
+    <div class="card">
+      <div class="sh"><h3>Fournisseurs</h3><button class="add-btn" onclick="showAddFourn()">+ Ajouter</button></div>
+      ${!fournisseurs.length?`<div style="font-size:12px;color:var(--text3);text-align:center;padding:16px">Aucun fournisseur</div>`:
+        fournisseurs.map(f=>`<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:0.5px solid var(--border)">
+          <div class="av" style="width:38px;height:38px;border-radius:10px;font-size:12px;background:${AVC[f.nom.charCodeAt(0)%AVC.length]};color:rgba(255,255,255,.8)">${f.nom.slice(0,2).toUpperCase()}</div>
+          <div style="flex:1"><div style="font-size:13px;font-weight:500;color:var(--text)">${f.nom}</div>
+            <div style="font-size:10px;color:var(--text3)">${f.specialite||''} · ${f.localisation||''}</div></div>
+          <a href="tel:${f.tel}" style="color:var(--blue)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.1 1.18 2 2 0 012.11 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.3 7.69a16 16 0 006 6l1.05-1.05a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+          </a>
+        </div>`).join('')}
+    </div>
+
+    <div class="card">
+      <div class="sh"><h3>Prix du marché</h3><button class="add-btn" onclick="showAddPrix()">+ Ajouter</button></div>
+      ${!prixMarche.length?`<div style="font-size:12px;color:var(--text3);text-align:center;padding:16px">Aucun prix enregistré</div>`:
+        prixMarche.map(p=>`<div class="pmi"><span style="font-size:13px;color:var(--text)">${p.article}</span>
+          <span style="font-size:12px;font-family:var(--mono);color:var(--text2)">${fmt(p.min)} – ${fmt(p.max)} F/${p.unite}</span>
+        </div>`).join('')}
+    </div>`;
+}
+
+function showAddFourn(){
+  const bg=mkModal(`
+    <div class="modal-hd">Nouveau fournisseur<button class="mclose" onclick="this.closest('.modal-bg').remove()">×</button></div>
+    <div class="fgrp"><div class="flbl">Nom / Société</div><input class="finp" id="fn" placeholder="DIALLO BTP"></div>
+    <div class="fgrp"><div class="flbl">Téléphone</div><input class="finp" id="ft" type="tel" placeholder="+221 77 000 00 00"></div>
+    <div class="fgrp"><div class="flbl">Spécialité</div><input class="finp" id="fsp" placeholder="Ciment, Fer, Gravier…"></div>
+    <div class="fgrp"><div class="flbl">Localisation</div><input class="finp" id="floc" placeholder="Dakar, Thiès…"></div>
+    <div class="fmsg" id="fournmsg"></div>
+    <button class="btn-p" onclick="saveFourn(this.closest('.modal-bg'))">Enregistrer</button>`);
+  document.body.appendChild(bg);
+}
+
+async function saveFourn(bg){
+  const nom=document.getElementById('fn')?.value.trim();
+  const msg=document.getElementById('fournmsg');
+  if(!nom){msg.textContent='Nom obligatoire';return;}
+  await db.collection('users').doc(uid).collection('fournisseurs').add({
+    nom,tel:document.getElementById('ft')?.value||'',
+    specialite:document.getElementById('fsp')?.value.trim()||'',
+    localisation:document.getElementById('floc')?.value.trim()||'',
+    createdAt:new Date().toISOString()
+  });
+  bg.remove();toast('Fournisseur ajouté ✓');
+}
+
+function showAddPrix(){
+  const bg=mkModal(`
+    <div class="modal-hd">Prix du marché<button class="mclose" onclick="this.closest('.modal-bg').remove()">×</button></div>
+    <div class="fgrp"><div class="flbl">Article</div><input class="finp" id="pa" placeholder="Ciment SOCOCIM, Fer ø12…"></div>
+    <div class="frow">
+      <div class="fgrp"><div class="flbl">Prix min (F)</div><input class="finp" id="pmin" type="text" inputmode="numeric" oninput="fmtAmt(this)" placeholder="3 800"></div>
+      <div class="fgrp"><div class="flbl">Prix max (F)</div><input class="finp" id="pmax" type="text" inputmode="numeric" oninput="fmtAmt(this)" placeholder="4 200"></div>
+    </div>
+    <div class="fgrp"><div class="flbl">Unité</div><select class="finp" id="pu"><option>sac</option><option>tonne</option><option>m³</option><option>barre</option><option>L</option><option>pièce</option></select></div>
+    <div class="fmsg" id="pxmsg"></div>
+    <button class="btn-p" onclick="savePrix(this.closest('.modal-bg'))">Enregistrer</button>`);
+  document.body.appendChild(bg);
+}
+
+async function savePrix(bg){
+  const art=document.getElementById('pa')?.value.trim();
+  const msg=document.getElementById('pxmsg');
+  if(!art){msg.textContent='Article obligatoire';return;}
+  const d={article:art,min:parseFloat(document.getElementById('pmin')?.value.replace(/\s/g,'')||0),
+    max:parseFloat(document.getElementById('pmax')?.value.replace(/\s/g,'')||0),
+    unite:document.getElementById('pu')?.value||'',updatedAt:new Date().toISOString()};
+  await db.collection('users').doc(uid).collection('prix').add(d);
+  prixMarche.push(d);bg.remove();toast('Prix mis à jour ✓');
+  if(document.getElementById('page-profil').classList.contains('active'))renderProfil();
+}
+
+function showAddPhase(cid){
+  const bg=mkModal(`
+    <div class="modal-hd">Nouvelle phase<button class="mclose" onclick="this.closest('.modal-bg').remove()">×</button></div>
+    <div class="fgrp"><div class="flbl">Nom de la phase</div><input class="finp" id="phn" placeholder="Fondations, Élévation RDC, Finitions…"></div>
+    <div class="fgrp"><div class="flbl">Avancement initial (%)</div><input class="finp" id="php" type="number" min="0" max="100" placeholder="0"></div>
+    <div class="fmsg" id="phmsg"></div>
+    <button class="btn-p" onclick="savePhase('${cid}',this.closest('.modal-bg'))">Ajouter</button>`);
+  document.body.appendChild(bg);
+}
+
+async function savePhase(cid,bg){
+  const nom=document.getElementById('phn')?.value.trim();
+  const msg=document.getElementById('phmsg');
+  if(!nom){msg.textContent='Nom obligatoire';return;}
+  await PP(cid).add({nom,pct:parseInt(document.getElementById('php')?.value||0),createdAt:new Date().toISOString()});
+  bg.remove();toast('Phase ajoutée ✓');
+  loadPhases(document.getElementById('ctab'),chantiers.find(x=>x.id===cid));
+}
+
+function showAddStock(cid){
+  goP('add',null);
+  setTimeout(()=>{
+    const tabs=document.querySelectorAll('#page-add .tab');
+    tabs.forEach(t=>t.classList.remove('on'));tabs[2]?.classList.add('on');
+    document.getElementById('add-body').innerHTML=renderAddStk();
+    if(document.getElementById('sc'))document.getElementById('sc').value=cid;
+  },60);
+}
+
+function showNewChan(){
+  goP('add',null);
+  setTimeout(()=>{
+    const tabs=document.querySelectorAll('#page-add .tab');
+    tabs.forEach(t=>t.classList.remove('on'));tabs[3]?.classList.add('on');
+    document.getElementById('add-body').innerHTML=renderChanForm();
+  },60);
+}
+
+// ── PDF RAPPORT ───────────────────────────
+async function exportPDF(cid){
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const c=chantiers.find(x=>x.id===cid);if(!c)return;
+  const W=210,M=15,DARK=[10,22,40],GREEN=[0,214,143],GR=[120,140,160];
+
+  doc.setFillColor(...DARK);doc.rect(0,0,W,48,'F');
+  doc.setFillColor(...GREEN);doc.rect(0,45,W,3,'F');
+  doc.setFont('helvetica','bold');doc.setFontSize(24);doc.setTextColor(...GREEN);
+  doc.text('WERAL',M,22);
+  doc.setFontSize(10);doc.setTextColor(255,255,255);doc.text('RAPPORT DE CHANTIER',M,30);
+  doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...GR);
+  doc.text('Généré le '+new Date().toLocaleDateString('fr-FR'),M,38);
+
+  let y=58;
+  doc.setFont('helvetica','bold');doc.setFontSize(15);doc.setTextColor(...DARK);doc.text(c.nom,M,y);y+=7;
+  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...GR);
+  doc.text('Client: '+(c.client||'—')+'   Localisation: '+(c.localisation||'—'),M,y);y+=5;
+  doc.text('Type: '+(c.type==='devis'?'Sur devis':'Forfait')+'   Démarrage: '+(c.dateDebut||'—'),M,y);y+=10;
+
+  const pct=c.avancement||0;
+  doc.setFillColor(230,235,245);doc.rect(M,y,W-2*M,5,'F');
+  doc.setFillColor(...GREEN);doc.rect(M,y,(W-2*M)*pct/100,5,'F');
+  doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(...DARK);
+  doc.text('Avancement: '+pct+'%',M,y+9);y+=16;
+
+  try{
+    const s=await FP(cid).orderBy('createdAt','desc').get();
+    const flux=s.docs.map(d=>d.data());
+    const tin=flux.filter(f=>f.sens==='entree').reduce((s,f)=>s+(f.montant||0),0);
+    const tout=flux.filter(f=>f.sens==='sortie').reduce((s,f)=>s+(f.montant||0),0);
+    doc.setFillColor(240,244,248);doc.rect(M,y,W-2*M,24,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(...DARK);doc.text('SYNTHÈSE FINANCIÈRE',M+3,y+7);
+    doc.setFont('helvetica','normal');doc.setFontSize(8);
+    doc.setTextColor(0,160,100);doc.text('Entrées: '+tin.toLocaleString('fr-FR')+' FCFA',M+3,y+13);
+    doc.setTextColor(200,60,80);doc.text('Sorties: '+tout.toLocaleString('fr-FR')+' FCFA',M+55,y+13);
+    const sol=tin-tout;doc.setTextColor(...DARK);doc.text('Solde: '+sol.toLocaleString('fr-FR')+' FCFA',M+110,y+13);
+    if(c.budget)doc.text('Budget: '+c.budget.toLocaleString('fr-FR')+' FCFA',M+3,y+19);
+    if(c.reliquat)doc.text('Reliquat client: '+c.reliquat.toLocaleString('fr-FR')+' FCFA',M+55,y+19);
+    y+=30;
+    if(flux.length){
+      doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(...DARK);doc.text('DÉTAIL DES FLUX',M,y);y+=5;
+      doc.setFillColor(...DARK);doc.rect(M,y,W-2*M,7,'F');
+      doc.setFont('helvetica','normal');doc.setTextColor(255,255,255);doc.setFontSize(7.5);
+      doc.text('Date',M+2,y+5);doc.text('Libellé',M+22,y+5);doc.text('Catégorie',M+100,y+5);doc.text('Montant',M+138,y+5);y+=9;
+      flux.slice(0,25).forEach((f,i)=>{
+        if(y>275){doc.addPage();y=20;}
+        if(i%2===0){doc.setFillColor(245,248,252);doc.rect(M,y-1,W-2*M,7,'F');}
+        doc.setTextColor(f.sens==='entree'?[0,140,90]:[180,40,60]);doc.setFontSize(7.5);
+        doc.text((f.date||'').slice(0,10),M+2,y+4);
+        doc.text((f.libelle||'').slice(0,38),M+22,y+4);
+        doc.text((f.cat||'').slice(0,14),M+100,y+4);
+        doc.text((f.sens==='entree'?'+':'-')+(f.montant||0).toLocaleString('fr-FR')+' F',M+138,y+4);
+        y+=7;
+      });
+    }
+  }catch(e){}
+  doc.save('Rapport_'+c.nom.replace(/\s/g,'_')+'.pdf');
+  toast('Rapport PDF téléchargé ✓');
+}
+
+// ── UTILS ─────────────────────────────────
+function fmt(n){return Math.round(n||0).toLocaleString('fr-FR');}
+function today(){return new Date().toISOString().split('T')[0];}
+function fmtAmt(el){const r=el.value.replace(/[^0-9]/g,'');el.value=r?parseInt(r).toLocaleString('fr-FR'):'';}
+function loading(){return '<div style="text-align:center;padding:30px;color:var(--text3)"><div class="spin" style="margin:0 auto 12px"></div>Chargement…</div>';}
+function err(){return '<div class="empty"><p>Erreur de chargement</p></div>';}
+function mkModal(html){const bg=document.createElement('div');bg.className='modal-bg';bg.innerHTML=`<div class="modal">${html}</div>`;bg.addEventListener('click',e=>{if(e.target===bg)bg.remove();});return bg;}
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('on');clearTimeout(ttt);ttt=setTimeout(()=>el.classList.remove('on'),2800);}
+function toggleTheme(){document.documentElement.classList.toggle('light');const l=document.documentElement.classList.contains('light');localStorage.setItem('weral-theme',l?'light':'dark');document.getElementById('theme-btn').innerHTML=l?'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/></svg>':'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';}
+if(localStorage.getItem('weral-theme')==='light')document.documentElement.classList.add('light');
+</script>
+</body>
+</html>
