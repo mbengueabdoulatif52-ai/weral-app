@@ -37,14 +37,16 @@ body{max-width:480px;width:100%;margin:0 auto;padding-top:60px;padding-bottom:80
   cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text2)}
 #navbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;z-index:100;
   background:rgba(10,22,40,.95);backdrop-filter:blur(20px);border-top:0.5px solid var(--border);
-  display:flex;padding:6px 0 10px}
+  display:flex;align-items:center;padding:6px 0 10px;height:64px}
 .light #navbar{background:rgba(240,243,248,.97)}
-.ni{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:transparent;
-  cursor:pointer;padding:4px 0;color:var(--text3);font-size:9px;font-family:var(--font)}
-.ni.active{color:var(--green)}
+.ni{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  border:none;background:transparent;cursor:pointer;padding:4px 0;color:var(--text3);font-size:9px;font-family:var(--font);height:100%}
+.ni.on{color:var(--green)}
 .ni svg{width:20px;height:20px}
-.ni-add{width:44px;height:44px;border-radius:50%;background:var(--green);border:none;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;margin-top:-16px;box-shadow:0 4px 20px rgba(0,214,143,.35)}
+.ni-wrap{flex:1;display:flex;align-items:center;justify-content:center;height:100%}
+.ni-add{width:48px;height:48px;border-radius:50%;background:var(--green);border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;margin-bottom:8px;
+  box-shadow:0 4px 20px rgba(0,214,143,.4);flex-shrink:0}
 .ni-add svg{width:22px;height:22px;color:#000}
 .page{display:none;padding:16px}
 .page.active{display:block}
@@ -77,10 +79,10 @@ body{max-width:480px;width:100%;margin:0 auto;padding-top:60px;padding-bottom:80
 .sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .sh h3{font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em}
 .add-btn{font-size:11px;color:var(--green);background:transparent;border:none;cursor:pointer;font-family:var(--font)}
-.metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
-.metric{background:var(--surf2);border-radius:10px;padding:12px}
-.mlbl{font-size:10px;color:var(--text3);margin-bottom:4px}
-.mval{font-size:17px;font-weight:500;font-family:var(--mono);color:var(--text)}
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.metric{background:var(--surf2);border-radius:12px;padding:14px;border:0.5px solid var(--border)}
+.mlbl{font-size:10px;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em}
+.mval{font-size:18px;font-weight:500;font-family:var(--mono);color:var(--text);line-height:1}
 .mval.g{color:var(--green)}.mval.r{color:var(--red)}.mval.a{color:var(--amber)}
 .cc{background:var(--surf);border:0.5px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px;cursor:pointer}
 .cc-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
@@ -194,9 +196,11 @@ select.finp{appearance:none;cursor:pointer}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
     Ouvriers
   </button>
-  <button class="ni-add" onclick="goP('add',null)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-  </button>
+  <div class="ni-wrap">
+    <button class="ni-add" onclick="goP('add',null)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+  </div>
   <button class="ni" id="ni-pro" onclick="goP('profil',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
     Profil
@@ -265,7 +269,7 @@ auth.onAuthStateChanged(async user=>{
   document.getElementById('auth-screen').style.display='none';
   document.getElementById('topbar').style.display='flex';
   document.getElementById('navbar').style.display='flex';
-  document.querySelectorAll('.page').forEach(p=>p.style.display='block');
+  // Pages shown via CSS .active class only
   await loadProfile();
   listenChantiers();
   listenFournisseurs();
@@ -276,16 +280,27 @@ auth.onAuthStateChanged(async user=>{
 async function loadProfile(){
   try{
     const d=await db.collection('users').doc(uid).collection('data').doc('profile').get();
-    if(d.exists()){const p=d.data();userRole=p.role||'operateur';userName=p.name||userPhone;}
-    else showRoleModal();
-  }catch(e){}
+    if(d.exists()){
+      const p=d.data();
+      userRole=p.role||'operateur';
+      userName=p.name||user?.displayName||userPhone;
+    } else {
+      // Première connexion — forcer la modal de rôle
+      userName=auth.currentUser?.displayName||'';
+      showRoleModal();
+    }
+  }catch(e){
+    userName=auth.currentUser?.displayName||'';
+    showRoleModal();
+  }
 }
 
 function showRoleModal(){
+  const googleName=auth.currentUser?.displayName||'';
   const bg=mkModal(`
     <div class="modal-hd">Bienvenue sur WERAL</div>
     <p style="font-size:13px;color:var(--text2);margin-bottom:16px">Quel est votre rôle ?</p>
-    <div class="fgrp"><div class="flbl">Votre nom</div><input class="finp" id="rm-nom" placeholder="Prénom et nom"></div>
+    <div class="fgrp"><div class="flbl">Votre nom</div><input class="finp" id="rm-nom" placeholder="Prénom et nom" value="${googleName}"></div>
     <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">
       <button class="btn-p" onclick="saveRole('operateur')">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
@@ -300,9 +315,13 @@ function showRoleModal(){
 }
 
 async function saveRole(role){
-  const nom=document.getElementById('rm-nom')?.value.trim()||userPhone;
+  const nom=document.getElementById('rm-nom')?.value.trim()||auth.currentUser?.displayName||userPhone;
   userRole=role;userName=nom;
-  await db.collection('users').doc(uid).collection('data').doc('profile').set({role,name:nom,phone:userPhone});
+  await db.collection('users').doc(uid).collection('data').doc('profile').set({
+    role,name:nom,phone:userPhone,
+    email:auth.currentUser?.email||'',
+    photo:auth.currentUser?.photoURL||''
+  });
   document.querySelector('.modal-bg')?.remove();
   renderDash();
 }
