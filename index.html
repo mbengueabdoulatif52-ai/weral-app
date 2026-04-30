@@ -154,25 +154,14 @@ select.finp{appearance:none;cursor:pointer}
   <div class="auth-logo">WER<span>AL</span></div>
   <div class="auth-sub">Gestion de chantier BTP<br>Sénégal · Secteur informel & formel</div>
   <div class="auth-card">
-    <div id="step-phone">
-      <div class="auth-lbl">Numéro de téléphone</div>
-      <div class="phone-wrap">
-        <div class="phone-prefix">+221</div>
-        <input type="tel" id="phone-inp" placeholder="77 000 00 00" inputmode="numeric" maxlength="9">
-      </div>
-      <div id="recaptcha-container" style="margin-bottom:12px"></div>
-      <div class="fmsg" id="auth-msg"></div>
-      <button class="btn-p" onclick="sendOTP()">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.1 1.18 2 2 0 012.11 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.3 7.69a16 16 0 006 6l1.05-1.05a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
-        Recevoir le code SMS
-      </button>
-    </div>
-    <div id="step-otp" style="display:none">
-      <div class="auth-lbl">Code SMS reçu</div>
-      <input class="finp" type="text" id="otp-inp" placeholder="_ _ _ _ _ _" inputmode="numeric" maxlength="6" style="text-align:center;font-size:22px;letter-spacing:10px;font-family:var(--mono);margin-bottom:12px">
-      <div class="fmsg" id="otp-msg"></div>
-      <button class="btn-p" id="verify-btn" onclick="verifyOTP()">Se connecter</button>
-      <button style="width:100%;text-align:center;margin-top:10px;background:transparent;border:none;color:var(--text3);font-size:12px;cursor:pointer;font-family:var(--font)" onclick="resetAuth()">← Changer de numéro</button>
+    <div class="fmsg" id="auth-msg" style="text-align:center"></div>
+    <button class="btn-p" onclick="signInGoogle()" id="google-btn" style="background:#fff;color:#1a1a1a;border:0.5px solid #ddd;gap:12px">
+      <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Se connecter avec Google
+    </button>
+    <div style="margin-top:16px;font-size:11px;color:var(--text3);text-align:center;line-height:1.6">
+      Un compte Gmail est requis pour se connecter.<br>
+      Créez-en un gratuitement sur gmail.com
     </div>
   </div>
 </div>
@@ -239,45 +228,23 @@ const AVC=['#1c3d6e','#0d4a3a','#4a1c3d','#3d3a0d','#1a3d5c'];
 let ttt=null;
 
 // ── AUTH ──────────────────────────────────
-function initRCV(){
-  if(rcv)return;
-  rcv=new firebase.auth.RecaptchaVerifier('recaptcha-container',{size:'invisible',callback:()=>{}});
-  rcv.render().catch(()=>{});
-}
-
-async function sendOTP(){
-  const p=document.getElementById('phone-inp').value.replace(/\s/g,'');
+async function signInGoogle(){
   const msg=document.getElementById('auth-msg');
-  if(p.length<8){msg.textContent='Numéro invalide';return;}
-  msg.textContent='Envoi en cours…';
+  const btn=document.getElementById('google-btn');
+  msg.textContent='';
+  btn.disabled=true;
+  btn.innerHTML='<div class="spin" style="width:16px;height:16px;border-width:2px;border-top-color:#1a1a1a"></div> Connexion…';
   try{
-    initRCV();
-    confirmResult=await auth.signInWithPhoneNumber('+221'+p,rcv);
-    document.getElementById('step-phone').style.display='none';
-    document.getElementById('step-otp').style.display='block';
-    msg.textContent='';
-    toast('Code envoyé au +221'+p);
+    const provider=new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({prompt:'select_account'});
+    await auth.signInWithPopup(provider);
   }catch(e){
-    msg.textContent='Erreur: '+e.message;
-    if(rcv){rcv.clear();rcv=null;}
+    if(e.code!=='auth/popup-closed-by-user'){
+      msg.textContent='Erreur: '+e.message.slice(0,80);
+    }
+    btn.disabled=false;
+    btn.innerHTML=`<svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> Se connecter avec Google`;
   }
-}
-
-async function verifyOTP(){
-  const code=document.getElementById('otp-inp').value.trim();
-  const msg=document.getElementById('otp-msg');
-  const btn=document.getElementById('verify-btn');
-  if(code.length!==6){msg.textContent='Code à 6 chiffres';return;}
-  btn.disabled=true;btn.innerHTML='<div class="spin" style="width:16px;height:16px;border-width:2px"></div> Vérification…';
-  try{await confirmResult.confirm(code);}
-  catch(e){msg.textContent='Code incorrect';btn.disabled=false;btn.innerHTML='Se connecter';}
-}
-
-function resetAuth(){
-  document.getElementById('step-otp').style.display='none';
-  document.getElementById('step-phone').style.display='block';
-  document.getElementById('auth-msg').textContent='';
-  confirmResult=null;if(rcv){rcv.clear();rcv=null;}
 }
 
 async function doSignOut(){
@@ -294,6 +261,7 @@ auth.onAuthStateChanged(async user=>{
     return;
   }
   uid=user.uid;userPhone=user.phoneNumber||'';
+  userName=user.displayName||user.email?.split('@')[0]||'Utilisateur';
   document.getElementById('auth-screen').style.display='none';
   document.getElementById('topbar').style.display='flex';
   document.getElementById('navbar').style.display='flex';
