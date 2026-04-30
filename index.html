@@ -365,8 +365,9 @@ function listenChantiers(){
 }
 function listenFournisseurs(){
   if(unsub2)unsub2();
-  unsub2=db.collection('users').doc(uid).collection('fournisseurs').onSnapshot(s=>{
+  unsub2=db.collection('users').doc(uid).collection('fournisseurs').orderBy('createdAt','desc').onSnapshot(s=>{
     fournisseurs=s.docs.map(d=>({id:d.id,...d.data()}));
+    if(document.getElementById('page-profil').classList.contains('active'))renderProfil();
   });
 }
 function loadPrix(){
@@ -395,7 +396,7 @@ function renderDash(){
       <div class="metric"><div class="mlbl">Avances perso</div><div class="mval r">${fmt(avances)} F</div></div>
       <div class="metric"><div class="mlbl">Paies en attente</div><div class="mval a">${fmt(paies)} F</div></div>
     </div>
-    <div class="sh"><h3>Mes chantiers</h3><button class="add-btn" onclick="showNewChan()">+ Nouveau</button></div>
+    <div class="sh"><h3>Mes chantiers</h3><button class="add-btn" onclick="showNewChan()">+ Nouveau chantier</button></div>
     ${!chantiers.length?`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><p>Aucun chantier<br><span style="font-size:11px">Appuyez sur + pour commencer</span></p></div>`:chantiers.map(c=>{
       const pct=c.avancement||0;
       const col=pct>=100?'var(--green)':pct>=60?'var(--blue)':'var(--amber)';
@@ -469,7 +470,10 @@ function renderFluxList(flux,c){
           <div class="fi-title">${f.libelle||f.cat||'—'}</div>
           <div class="fi-sub">${f.date||''}${f.fournisseur?' · '+f.fournisseur:''}${f.avancePerso?' · <span style="color:var(--amber)">Avance perso</span>':''}</div>
         </div>
-        <div class="fi-amt ${f.sens==='entree'?'in':'out'}">${f.sens==='entree'?'+':'−'}${fmt(f.montant)} F</div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          <div class="fi-amt ${f.sens==='entree'?'in':'out'}">${f.sens==='entree'?'+':'−'}${fmt(f.montant)} F</div>
+          <button onclick="openEditFlux('${f.id}','${currentCid}')" style="font-size:10px;color:var(--text3);background:transparent;border:none;cursor:pointer;font-family:var(--font);padding:0">Modifier</button>
+        </div>
       </div>`).join('')}
     </div>`}`;
 }
@@ -501,7 +505,7 @@ async function loadStock(el,c){
 async function loadPhases(el,c){
   el.innerHTML=loading();
   try{
-    const phases=(await PP(currentCid).get()).docs.map(d=>({id:d.id,...d.data()}));
+    const phases=(await PP(currentCid).orderBy('createdAt','asc').get()).docs.map(d=>({id:d.id,...d.data()}));
     const avg=phases.length?Math.round(phases.reduce((s,p)=>s+(p.pct||0),0)/phases.length):0;
     el.innerHTML=`<div class="sh"><h3>Phases chantier</h3><button class="add-btn" onclick="showAddPhase('${c.id}')">+ Phase</button></div>
       ${!phases.length?`<div class="empty"><p>Aucune phase définie</p></div>`:`
@@ -560,9 +564,8 @@ function renderAdd(){
     <div class="sh" style="margin-bottom:14px"><h3 style="font-size:14px;color:var(--text);text-transform:none;letter-spacing:0">Ajouter</h3></div>
     <div class="tabs">
       <button class="tab on" onclick="setAddTab(this,'flux')">Flux financier</button>
-      <button class="tab" onclick="setAddTab(this,'ouvrier')">Ouvrier</button>
-      <button class="tab" onclick="setAddTab(this,'stock')">Stock</button>
-      <button class="tab" onclick="setAddTab(this,'chantier')">Nouveau chantier</button>
+      <button class="tab" onclick="setAddTab(this,'ouvrier')">Nouvel ouvrier</button>
+      <button class="tab" onclick="setAddTab(this,'stock')">Entrée matériaux</button>
     </div>
     <div id="add-body">${renderAddFlux()}</div>`;
 }
@@ -574,7 +577,6 @@ function setAddTab(btn,t){
   if(t==='flux')el.innerHTML=renderAddFlux();
   else if(t==='ouvrier')el.innerHTML=renderAddOuv();
   else if(t==='stock')el.innerHTML=renderAddStk();
-  else if(t==='chantier')el.innerHTML=renderChanForm();
 }
 
 const copts=()=>chantiers.map(c=>`<option value="${c.id}">${c.nom}</option>`).join('');
@@ -655,7 +657,25 @@ async function saveFlux(){
       const newReliquat=Math.max(0,(c?.reliquat||0)-mont);
       await CP(cid).update({reliquat:newReliquat});
     }
-    toast('Enregistré ✓');renderAdd();
+    // Comparaison prix marché pour les achats de matériaux
+    let msg2='Enregistré ✓';
+    if(data.sens==='sortie'&&data.cat==='materiaux'&&data.montant>0&&prixMarche.length){
+      const pm=prixMarche.find(p=>
+        data.libelle.toLowerCase().includes(p.article.toLowerCase())||
+        p.article.toLowerCase().includes(data.libelle.split(' ')[0].toLowerCase())
+      );
+      if(pm){
+        // Try to extract unit price from libelle (e.g. "Ciment × 80 sacs")
+        const qMatch=data.libelle.match(/×\s*([\d.]+)/);
+        if(qMatch){
+          const pu=data.montant/parseFloat(qMatch[1]);
+          if(pu>pm.max*1.1) msg2=`⚠️ Prix élevé ! ${fmt(pu)} F/${pm.unite} vs marché ${fmt(pm.min)}–${fmt(pm.max)} F`;
+          else if(pu<pm.min*0.9) msg2=`✓ Bon prix ! ${fmt(pu)} F/${pm.unite} (marché ${fmt(pm.min)}–${fmt(pm.max)} F)`;
+          else msg2=`Enregistré ✓ · Prix OK (marché ${fmt(pm.min)}–${fmt(pm.max)} F/${pm.unite})`;
+        }
+      }
+    }
+    toast(msg2);renderAdd();
   }catch(e){
     msg.textContent='Erreur: '+e.message.slice(0,60);
     btn.disabled=false;
@@ -693,24 +713,48 @@ async function saveOuv(){
   const mode=document.querySelector('#page-add .chips .chip.on')?.textContent||'Journalier';
   const taux=parseFloat(document.getElementById('otr')?.value.replace(/\s/g,'')||0);
   await OP().add({nom,tel:document.getElementById('ot')?.value||'',spec:document.getElementById('os')?.value||'',mode,taux,createdAt:new Date().toISOString()});
-  toast('Ouvrier ajouté ✓');renderAdd();
+  toast('Ouvrier ajouté ✓');goP('ouvriers',document.getElementById('ni-ouv'));
 }
 
 function renderAddStk(){
+  const fOpts=fournisseurs.map(f=>`<option value="${f.nom}">${f.nom}</option>`).join('');
   return `<div class="card">
     <div class="fgrp"><div class="flbl">Chantier</div><select class="finp" id="sc">${copts()}</select></div>
-    <div class="fgrp"><div class="flbl">Article</div><input class="finp" id="sa" placeholder="Ciment SOCOCIM, Fer ø12, Parpaings…"></div>
-    <div class="frow">
-      <div class="fgrp"><div class="flbl">Quantité</div><input class="finp" id="sq" type="number" placeholder="80" min="0" step="0.5"></div>
-      <div class="fgrp"><div class="flbl">Unité</div><select class="finp" id="su"><option>sacs</option><option>tonnes</option><option>m³</option><option>m²</option><option>ml</option><option>barres</option><option>pièces</option><option>L</option></select></div>
+    <div class="fgrp"><div class="flbl">Article / Matériau</div>
+      <input class="finp" id="sa" placeholder="Ciment SOCOCIM, Fer ø12, Parpaings 15×20…" list="articles-list">
+      <datalist id="articles-list">
+        <option value="Ciment SOCOCIM"><option value="Ciment Dangote"><option value="Fer ø8">
+        <option value="Fer ø10"><option value="Fer ø12"><option value="Fer ø14"><option value="Fer ø16">
+        <option value="Parpaings 15×20"><option value="Parpaings 10×20"><option value="Sable fin">
+        <option value="Gravier 5/15"><option value="Brique rouge"><option value="Carrelage">
+        <option value="Ciment colle"><option value="Enduit">
+      </datalist>
     </div>
     <div class="frow">
-      <div class="fgrp"><div class="flbl">Prix unitaire (F)</div><input class="finp" id="spu" type="text" placeholder="4 000" inputmode="numeric" oninput="fmtAmt(this)"></div>
-      <div class="fgrp"><div class="flbl">Fournisseur</div><input class="finp" id="sf" placeholder="DIALLO BTP"></div>
+      <div class="fgrp"><div class="flbl">Quantité reçue</div><input class="finp" id="sq" type="number" placeholder="80" min="0" step="0.5"></div>
+      <div class="fgrp"><div class="flbl">Unité</div><select class="finp" id="su">
+        <option>sacs</option><option>tonnes</option><option>m³</option><option>m²</option>
+        <option>ml</option><option>barres</option><option>pièces</option><option>L</option>
+      </select></div>
     </div>
+    <div class="fgrp"><div class="flbl">Fournisseur</div>
+      <select class="finp" id="sf-sel" onchange="handleFournSelect(this.value)">
+        <option value="">— Sélectionner ou saisir —</option>
+        ${fOpts}
+        <option value="__autre__">Autre (saisir le nom)</option>
+      </select>
+      <input class="finp" id="sf-txt" placeholder="Nom du fournisseur" style="margin-top:6px;display:none">
+    </div>
+    <div class="fgrp"><div class="flbl">Date de livraison</div><input class="finp" type="date" id="sd" value="${today()}"></div>
+    <div class="fgrp"><div class="flbl">Commentaire (facultatif)</div><input class="finp" id="scmt" placeholder="Livraison partielle, qualité…"></div>
     <div class="fmsg" id="smsg"></div>
     <button class="btn-p" onclick="saveStk()">Enregistrer entrée stock</button>
   </div>`;
+}
+
+function handleFournSelect(val){
+  const txt=document.getElementById('sf-txt');
+  if(txt) txt.style.display=val==='__autre__'?'block':'none';
 }
 
 async function saveStk(){
@@ -718,16 +762,20 @@ async function saveStk(){
   const art=document.getElementById('sa')?.value.trim();
   const qte=parseFloat(document.getElementById('sq')?.value||0);
   const msg=document.getElementById('smsg');
-  if(!art||!qte){msg.textContent='Article et quantité obligatoires';return;}
+  if(!art||!qte||qte<=0){msg.textContent='Article et quantité obligatoires';return;}
   const unite=document.getElementById('su')?.value||'';
-  const pu=parseFloat(document.getElementById('spu')?.value.replace(/\s/g,'')||0);
-  const fourn=document.getElementById('sf')?.value.trim()||'';
-  // Merge or create stock entry
-  const ex=(await SP(cid).where('article','==',art).get());
-  if(!ex.empty){await ex.docs[0].ref.update({entree:ex.docs[0].data().entree+qte,reste:ex.docs[0].data().reste+qte});}
-  else{await SP(cid).add({article:art,entree:qte,reste:qte,unite,pu,fournisseur:fourn,createdAt:new Date().toISOString()});}
-  if(pu>0){await FP(cid).add({sens:'sortie',cat:'materiaux',montant:qte*pu,libelle:art+' × '+qte+' '+unite,fournisseur:fourn,date:today(),avancePerso:false,createdAt:new Date().toISOString()});}
-  toast('Stock mis à jour ✓');renderAdd();
+  const sel=document.getElementById('sf-sel')?.value||'';
+  const fourn=sel==='__autre__'?(document.getElementById('sf-txt')?.value.trim()||''):sel;
+  const date=document.getElementById('sd')?.value||today();
+  const cmt=document.getElementById('scmt')?.value.trim()||'';
+  // Merge si article existe déjà
+  const ex=await SP(cid).where('article','==',art).get();
+  if(!ex.empty){
+    await ex.docs[0].ref.update({entree:ex.docs[0].data().entree+qte,reste:ex.docs[0].data().reste+qte});
+  } else {
+    await SP(cid).add({article:art,entree:qte,reste:qte,unite,fournisseur:fourn,date,cmt,createdAt:new Date().toISOString()});
+  }
+  toast('Stock mis à jour ✓');goP('stock',document.getElementById('ni-stk'));
 }
 
 function renderChanForm(){
@@ -795,6 +843,78 @@ async function updateChan(id,bg){
     paieAttente:parseFloat(document.getElementById('ep')?.value.replace(/\s/g,'')||0),
   });
   bg.remove();toast('Mis à jour ✓');
+}
+
+// ── MODIFIER FLUX ────────────────────────
+function openEditFlux(fid, cid){
+  const c=chantiers.find(x=>x.id===cid);
+  // Fetch the flux doc then show modal
+  FP(cid).doc(fid).get().then(doc=>{
+    if(!doc.exists())return;
+    const f={id:doc.id,...doc.data()};
+    const fopts=fournisseurs.map(x=>`<option value="${x.nom}" ${x.nom===f.fournisseur?'selected':''}>${x.nom}</option>`).join('');
+    const bg=mkModal(`
+      <div class="modal-hd">Modifier la transaction<button class="mclose" onclick="this.closest('.modal-bg').remove()">×</button></div>
+      <div class="fgrp"><div class="flbl">Montant (FCFA)</div>
+        <input class="finp" id="ef-m" type="text" value="${fmt(f.montant)}" inputmode="numeric" oninput="fmtAmt(this)">
+      </div>
+      <div class="fgrp"><div class="flbl">Libellé</div><input class="finp" id="ef-l" value="${f.libelle||''}"></div>
+      <div class="fgrp"><div class="flbl">Date</div><input class="finp" type="date" id="ef-d" value="${f.date||''}"></div>
+      <div class="fgrp"><div class="flbl">Fournisseur</div>
+        <select class="finp" id="ef-f"><option value="">— Aucun —</option>${fopts}<option value="__autre__">Autre…</option></select>
+      </div>
+      <div class="fgrp"><div class="flbl">Commentaire</div><input class="finp" id="ef-c" value="${f.cmt||''}"></div>
+      <div class="fgrp" style="display:flex;align-items:center;gap:10px">
+        <input type="checkbox" id="ef-a" ${f.avancePerso?'checked':''} style="width:16px;height:16px;accent-color:var(--amber)">
+        <label for="ef-a" style="font-size:13px;color:var(--text2);cursor:pointer">Avance personnelle</label>
+      </div>
+      <div class="fmsg" id="ef-msg"></div>
+      <div style="display:flex;gap:10px">
+        <button class="btn-o" style="flex:1;color:var(--red);border-color:var(--red)" onclick="deleteFlux('${fid}','${cid}',this.closest('.modal-bg'))">Supprimer</button>
+        <button class="btn-p" style="flex:2" onclick="saveEditFlux('${fid}','${cid}',this.closest('.modal-bg'))">Enregistrer</button>
+      </div>`);
+    document.body.appendChild(bg);
+  });
+}
+
+async function saveEditFlux(fid,cid,bg){
+  const msg=document.getElementById('ef-msg');
+  const mont=parseFloat(document.getElementById('ef-m')?.value.replace(/\s/g,'')||0);
+  if(!mont||isNaN(mont)){msg.textContent='Montant invalide';return;}
+  const fourn=document.getElementById('ef-f')?.value==='__autre__'?'':document.getElementById('ef-f')?.value||'';
+  await FP(cid).doc(fid).update({
+    montant:mont,
+    libelle:document.getElementById('ef-l')?.value.trim()||'',
+    date:document.getElementById('ef-d')?.value||today(),
+    fournisseur:fourn,
+    cmt:document.getElementById('ef-c')?.value.trim()||'',
+    avancePerso:document.getElementById('ef-a')?.checked||false,
+    updatedAt:new Date().toISOString()
+  });
+  bg.remove();toast('Transaction modifiée ✓');
+  if(document.getElementById('page-chantier').classList.contains('active'))renderChantierDetail();
+}
+
+async function deleteFlux(fid,cid,bg){
+  const confirmed=await new Promise(resolve=>{
+    const ov=document.createElement('div');
+    ov.className='conf-overlay';
+    ov.innerHTML=`<div class="conf-box">
+      <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px">Supprimer cette transaction ?</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:18px">Cette action est irréversible.</div>
+      <div style="display:flex;gap:10px">
+        <button id="dc-no" style="flex:1;padding:11px;border-radius:10px;border:0.5px solid var(--border);background:var(--surf2);color:var(--text);font-family:var(--font);font-size:13px;cursor:pointer">Annuler</button>
+        <button id="dc-yes" style="flex:1;padding:11px;border-radius:10px;border:none;background:var(--red);color:#fff;font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer">Supprimer</button>
+      </div>
+    </div>`;
+    document.body.appendChild(ov);
+    ov.querySelector('#dc-yes').onclick=()=>{ov.remove();resolve(true);};
+    ov.querySelector('#dc-no').onclick=()=>{ov.remove();resolve(false);};
+  });
+  if(!confirmed)return;
+  await FP(cid).doc(fid).delete();
+  bg.remove();toast('Transaction supprimée');
+  if(document.getElementById('page-chantier').classList.contains('active'))renderChantierDetail();
 }
 
 // ── OUVRIERS PAGE ─────────────────────────
